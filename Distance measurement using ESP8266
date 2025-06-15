@@ -1,0 +1,76 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <NewPing.h>
+
+// OLED Display parameters
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define OLED_RESET -1    // Reset pin # (or -1 if sharing Arduino reset pin)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// Ultrasonic Sensor parameters
+#define TRIGGER_PIN D5  // NodeMCU D5 (GPIO14) connected to Trig pin of HC-SR04
+#define ECHO_PIN D6     // NodeMCU D6 (GPIO12) connected to Echo pin of HC-SR04
+#define MAX_DISTANCE 400 // Maximum distance we want to ping for (in centimeters). Max sensor range is ~400cm.
+
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
+
+void setup() {
+  Serial.begin(115200); // Initialize serial communication for debugging
+
+  // Initialize OLED display
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3C for 128x64
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+
+  // Clear the display buffer
+  display.clearDisplay();
+
+  // Display initial message
+  display.setTextSize(1);      // Normal 1:1 pixel scale
+  display.setTextColor(SSD1306_WHITE); // Draw white text
+  display.setCursor(0,0);     // Start at top-left corner
+  display.println("Distance Measurer");
+  display.display();
+  delay(2000);
+  display.clearDisplay();
+}
+
+void loop() {
+  delay(50); // Wait 50ms between pings (minimum recommended for NewPing library). 29ms should be enough.
+  unsigned int duration = sonar.ping(); // Send ping, get ping time in microseconds (or 0 if no echo).
+
+  float distanceCm = sonar.convert_cm(duration); // Convert ping duration to distance in cm
+
+  Serial.print("Ping: ");
+  Serial.print(duration);
+  Serial.print("us, Distance: ");
+  Serial.print(distanceCm);
+  Serial.println("cm");
+
+  display.clearDisplay(); // Clear the display for new readings
+
+  display.setTextSize(2); // Larger text for distance
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0,0);
+  display.print("Dist: ");
+
+  // Handle out of range or no echo
+  if (distanceCm == 0) {
+    display.setTextSize(2);
+    display.setCursor(0, 20);
+    display.println("Out of Range");
+    Serial.println("Out of Range");
+  } else {
+    display.setTextSize(3); // Even larger for the number
+    display.setCursor(0, 25);
+    display.print(distanceCm);
+    display.setTextSize(2);
+    display.print(" cm");
+  }
+
+  display.display(); // Update the OLED display
+  delay(500); // Delay before next reading
+}
